@@ -27,7 +27,6 @@ model = load_model()
 @st.cache_resource
 def load_mediapipe():
     import mediapipe as mp
-    from mediapipe.framework.formats import landmark_pb2
     hands = mp.solutions.hands.Hands(static_image_mode=True, min_detection_confidence=0.5)
     drawing = mp.solutions.drawing_utils
     hands_module = mp.solutions.hands
