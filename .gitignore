@@ -6,4 +6,3 @@ __pycache__/
 *.h5
 *.pickle
 data.pickle
-model.p
