@@ -5,9 +5,6 @@ import numpy as np
 from PIL import Image
 import os
 import base64
-import av
-from collections import deque
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 
 # ===============================
 # PAGE CONFIG
@@ -419,40 +416,29 @@ tab1, tab2 = st.tabs(["📷  Camera Sign Detection", "🔤  Text → Sign"])
 
 
 # ───────────────────────────────
-# TAB 1 — Live Camera
+# TAB 1 — Camera
 # ───────────────────────────────
+with tab1:
+    st.markdown('<div class="section-hd">Show a hand sign to your camera</div>', unsafe_allow_html=True)
 
-# WebRTC config with public STUN server
-RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
+    img_file = st.camera_input("", label_visibility="collapsed")
 
-class SignDetector(VideoProcessorBase):
-    def __init__(self):
-        import mediapipe as mp
-        self.mp_hands = mp.solutions.hands
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.mp_drawing_styles = mp.solutions.drawing_styles
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.5
-        )
-        self.buffer = deque(maxlen=5)
-        self.last_char = ""
+    if img_file:
+        add_log("Photo captured — processing…", "blue")
 
-    def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        H, W, _ = img.shape
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(img_rgb)
+        img = Image.open(img_file)
+        img_array = np.array(img)
+        img_rgb = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+
+        results = hands.process(cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB))
+
+        data_aux, x_, y_ = [], [], []
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                data_aux, x_, y_ = [], [], []
-                self.mp_drawing.draw_landmarks(
-                    img, hand_landmarks,
-                    self.mp_hands.HAND_CONNECTIONS,
-                    self.mp_drawing_styles.get_default_hand_landmarks_style(),
-                    self.mp_drawing_styles.get_default_hand_connections_style()
+                mp_drawing.draw_landmarks(
+                    img_array, hand_landmarks,
+                    mp_hands_module.HAND_CONNECTIONS
                 )
                 for lm in hand_landmarks.landmark:
                     x_.append(lm.x); y_.append(lm.y)
@@ -460,61 +446,25 @@ class SignDetector(VideoProcessorBase):
                     data_aux.append(lm.x - min(x_))
                     data_aux.append(lm.y - min(y_))
 
-                if len(data_aux) == 42 and model is not None:
-                    pred = model.predict([np.asarray(data_aux)])[0]
-                    self.buffer.append(pred)
-                    char = max(set(self.buffer), key=self.buffer.count)
-                    self.last_char = char
+            st.image(img_array, use_container_width=True)
 
-                    x1 = int(min(x_) * W) - 10
-                    y1 = int(min(y_) * H) - 10
-                    x2 = int(max(x_) * W) + 10
-                    y2 = int(max(y_) * H) + 10
-
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (198, 128, 198), 3)
-                    cv2.putText(img, char, (x1, y1 - 12),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1.6,
-                                (198, 128, 198), 3, cv2.LINE_AA)
-
-        # header bar (matching main1.py)
-        overlay = img.copy()
-        cv2.rectangle(overlay, (0, 0), (W, 46), (50, 30, 70), -1)
-        cv2.addWeighted(overlay, 0.75, img, 0.25, 0, img)
-        cv2.putText(img, "SIGN DETECTION  |  Live",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.55, (198, 128, 198), 1, cv2.LINE_AA)
-
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-with tab1:
-    st.markdown('<div class="section-hd">Show a hand sign to your camera — detected live</div>', unsafe_allow_html=True)
-
-    if model is None:
-        st.markdown('<div class="msg-warn">⚠ model.p not found — place it in the app directory.</div>', unsafe_allow_html=True)
-
-    ctx = webrtc_streamer(
-        key="sign-detect",
-        video_processor_factory=SignDetector,
-        rtc_configuration=RTC_CONFIG,
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True,
-    )
-
-    # Show detected letter below the stream
-    if ctx.video_processor:
-        detected_placeholder = st.empty()
-        char = ctx.video_processor.last_char
-        if char:
-            detected_placeholder.markdown(
-                f'<div class="result-badge">✅ Detected: {char}</div>',
-                unsafe_allow_html=True
-            )
+            if len(data_aux) == 42 and model is not None:
+                predicted_char = model.predict([np.asarray(data_aux)])[0]
+                st.markdown(
+                    f'<div class="result-badge">✅ Detected Sign: {predicted_char}</div>',
+                    unsafe_allow_html=True
+                )
+                add_log(f'✦  Detected: "{predicted_char}"', "ok")
+            elif model is None:
+                st.markdown('<div class="msg-warn">⚠ model.p not found — place it in the app directory.</div>', unsafe_allow_html=True)
+                add_log("model.p not found.", "warn")
+            else:
+                st.markdown('<div class="msg-warn">Could not read hand landmarks cleanly. Try again with better framing.</div>', unsafe_allow_html=True)
+                add_log("Landmark extraction failed.", "warn")
         else:
-            detected_placeholder.markdown(
-                '<div style="text-align:center;color:#9880B8;font-size:0.85rem;margin-top:0.6rem;">'
-                'Hold up a hand sign to detect…</div>',
-                unsafe_allow_html=True
-            )
+            st.image(img_array, use_container_width=True)
+            st.markdown('<div class="msg-warn">No hand detected. Try better lighting or move closer.</div>', unsafe_allow_html=True)
+            add_log("No hand detected in photo.", "warn")
 
 
 # ───────────────────────────────
