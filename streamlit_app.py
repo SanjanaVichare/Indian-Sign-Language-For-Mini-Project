@@ -1,13 +1,10 @@
 import streamlit as st
 import cv2
-import mediapipe as mp
 import pickle
 import numpy as np
 from PIL import Image
-from collections import deque
 import os
 
-# ── Page config
 st.set_page_config(page_title="ISL Assistant", page_icon="🤟", layout="centered")
 
 st.markdown("""
@@ -21,7 +18,6 @@ h1, h2, h3, p { color: white !important; }
 st.title("🤟 Hearing Impairment Assistant")
 st.markdown("**Indian Sign Language · Speech to Sign · Live Detection**")
 
-# ── Load model
 @st.cache_resource
 def load_model():
     with open('./model.p', 'rb') as f:
@@ -30,18 +26,20 @@ def load_model():
 
 model = load_model()
 
-# ── MediaPipe
-import mediapipe as mp
-mp_hands_module = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-hands = mp_hands_module.Hands(static_image_mode=True, min_detection_confidence=0.5)
+@st.cache_resource
+def load_mediapipe():
+    import mediapipe as mp
+    hands_solution = mp.solutions.hands
+    drawing = mp.solutions.drawing_utils
+    hands = hands_solution.Hands(static_image_mode=True, min_detection_confidence=0.5)
+    return hands_solution, drawing, hands
 
-labels_dict = {i: chr(65+i) for i in range(26)}  # A-Z
+mp_hands_module, mp_drawing, hands = load_mediapipe()
 
-# ── Tabs
+labels_dict = {i: chr(65+i) for i in range(26)}
+
 tab1, tab2 = st.tabs(["📷 Camera Sign Detection", "🔤 Text → Sign"])
 
-# ── TAB 1: Camera Sign Detection
 with tab1:
     st.subheader("Show a hand sign to your camera")
     img_file = st.camera_input("Take a photo of your hand sign")
@@ -76,7 +74,6 @@ with tab1:
             st.image(img_array, use_column_width=True)
             st.warning("No hand detected. Please try again with better lighting.")
 
-# ── TAB 2: Text → Sign
 with tab2:
     st.subheader("Type a word or letter to see its ISL sign")
 
