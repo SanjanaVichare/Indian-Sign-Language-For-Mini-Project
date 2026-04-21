@@ -1,5 +1,5 @@
 opencv-contrib-python-headless
-mediapipe==0.10.11
+mediapipe
 scikit-learn
 numpy
 Pillow
