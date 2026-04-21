@@ -56,7 +56,7 @@ with tab1:
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(img_array, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                mp_drawing.draw_landmarks(img_array, hand_landmarks, mp_hands_module.HAND_CONNECTIONS)
                 for lm in hand_landmarks.landmark:
                     x_.append(lm.x)
                     y_.append(lm.y)
