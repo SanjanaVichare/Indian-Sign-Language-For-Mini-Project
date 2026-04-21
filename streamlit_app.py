@@ -33,6 +33,7 @@ model = load_model()
 # ── MediaPipe
 from mediapipe.python.solutions import hands as mp_hands_module
 from mediapipe.python.solutions import drawing_utils as mp_drawing
+
 hands = mp_hands_module.Hands(static_image_mode=True, min_detection_confidence=0.5)
 
 labels_dict = {i: chr(65+i) for i in range(26)}  # A-Z
